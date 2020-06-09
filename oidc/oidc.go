@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	brickstransport "github.com/pace/bricks/http/transport"
 	"golang.org/x/oauth2"
 )
 
@@ -89,6 +90,7 @@ func doRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 	if c := getClient(ctx); c != nil {
 		client = c
 	}
+	client.Transport = brickstransport.NewDefaultTransportChain()
 	return client.Do(req.WithContext(ctx))
 }
 
