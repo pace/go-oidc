@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	brickstransport "github.com/pace/bricks/http/transport"
 	"golang.org/x/oauth2"
 	jose "gopkg.in/square/go-jose.v2"
 )
@@ -60,6 +61,7 @@ func doRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 	if c, ok := ctx.Value(oauth2.HTTPClient).(*http.Client); ok {
 		client = c
 	}
+	client.Transport = brickstransport.NewDefaultTransportChain()
 	return client.Do(req.WithContext(ctx))
 }
 
