@@ -13,6 +13,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -164,7 +165,7 @@ var supportedAlgorithms = map[string]bool{
 // parsing.
 //
 //	// Directly fetch the metadata document.
-// 	resp, err := http.Get("https://login.example.com/custom-metadata-path")
+//	resp, err := http.Get("https://login.example.com/custom-metadata-path")
 //	if err != nil {
 //		// ...
 //	}
@@ -237,7 +238,7 @@ func (p *ProviderConfig) NewProvider(ctx context.Context) *Provider {
 // should use [ProviderConfig] instead.
 //
 // See: https://openid.net/specs/openid-connect-discovery-1_0.html
-func NewProvider(ctx context.Context, issuer string) (*Provider, error) {
+func NewProvider(ctx context.Context, issuer string, alternativeIssuer ...string) (*Provider, error) {
 	wellKnown := strings.TrimSuffix(issuer, "/") + "/.well-known/openid-configuration"
 	req, err := http.NewRequest("GET", wellKnown, nil)
 	if err != nil {
@@ -268,8 +269,9 @@ func NewProvider(ctx context.Context, issuer string) (*Provider, error) {
 	if !skipIssuerValidation {
 		issuerURL = issuer
 	}
-	if p.Issuer != issuerURL && !skipIssuerValidation {
-		return nil, fmt.Errorf("oidc: issuer did not match the issuer returned by provider, expected %q got %q", issuer, p.Issuer)
+	alternativeIssuer = append(alternativeIssuer, issuer)
+	if !slices.Contains(alternativeIssuer, p.Issuer) {
+		return nil, fmt.Errorf("oidc: issuer did not match the issuer returned by provider, expected one of %v got %q", alternativeIssuer, p.Issuer)
 	}
 	var algs []string
 	for _, a := range p.Algorithms {
