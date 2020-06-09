@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	brickstransport "github.com/pace/bricks/http/transport"
 	"golang.org/x/oauth2"
 	jose "gopkg.in/square/go-jose.v2"
 )
@@ -60,6 +61,7 @@ func doRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 	if c, ok := ctx.Value(oauth2.HTTPClient).(*http.Client); ok {
 		client = c
 	}
+	client.Transport = brickstransport.NewDefaultTransportChain()
 	return client.Do(req.WithContext(ctx))
 }
 
@@ -110,7 +112,7 @@ var supportedAlgorithms = map[string]bool{
 //
 // The issuer is the URL identifier for the service. For example: "https://accounts.google.com"
 // or "https://login.salesforce.com".
-func NewProvider(ctx context.Context, issuer string) (*Provider, error) {
+func NewProvider(ctx context.Context, issuer string, alternativeIssuer ...string) (*Provider, error) {
 	wellKnown := strings.TrimSuffix(issuer, "/") + "/.well-known/openid-configuration"
 	req, err := http.NewRequest("GET", wellKnown, nil)
 	if err != nil {
@@ -137,8 +139,10 @@ func NewProvider(ctx context.Context, issuer string) (*Provider, error) {
 		return nil, fmt.Errorf("oidc: failed to decode provider discovery object: %v", err)
 	}
 
-	if p.Issuer != issuer {
-		return nil, fmt.Errorf("oidc: issuer did not match the issuer returned by provider, expected %q got %q", issuer, p.Issuer)
+	alternativeIssuer = append(alternativeIssuer, issuer)
+	issuerStr := strings.Join(alternativeIssuer, " ")
+	if !strings.Contains(issuerStr, p.Issuer) {
+		return nil, fmt.Errorf("oidc: issuer did not match the issuer returned by provider, expected one of %q got %q", issuerStr, p.Issuer)
 	}
 	var algs []string
 	for _, a := range p.Algorithms {
