@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -50,9 +51,10 @@ type KeySet interface {
 
 // IDTokenVerifier provides verification for ID Tokens.
 type IDTokenVerifier struct {
-	keySet KeySet
-	config *Config
-	issuer string
+	keySet            KeySet
+	config            *Config
+	issuer            string
+	alternativeIssuer []string
 }
 
 // NewVerifier returns a verifier manually constructed from a key set and issuer URL.
@@ -71,8 +73,8 @@ type IDTokenVerifier struct {
 //
 //	keySet := &oidc.StaticKeySet{PublicKeys: []crypto.PublicKey{pub1, pub2}}
 //	verifier := oidc.NewVerifier("https://accounts.google.com", keySet, config)
-func NewVerifier(issuerURL string, keySet KeySet, config *Config) *IDTokenVerifier {
-	return &IDTokenVerifier{keySet: keySet, config: config, issuer: issuerURL}
+func NewVerifier(issuerURL string, keySet KeySet, config *Config, alternativeIssuer ...string) *IDTokenVerifier {
+	return &IDTokenVerifier{keySet: keySet, config: config, issuer: issuerURL, alternativeIssuer: alternativeIssuer}
 }
 
 // Config is the configuration for an IDTokenVerifier.
@@ -142,7 +144,7 @@ func (p *Provider) newVerifier(keySet KeySet, config *Config) *IDTokenVerifier {
 		cp.SupportedSigningAlgs = p.algorithms
 		config = cp
 	}
-	return NewVerifier(p.issuer, keySet, config)
+	return NewVerifier(p.issuer, keySet, config, p.alternativeIssuer...)
 }
 
 func parseJWT(p string) ([]byte, error) {
@@ -257,14 +259,16 @@ func (v *IDTokenVerifier) Verify(ctx context.Context, rawIDToken string) (*IDTok
 	}
 
 	// Check issuer.
-	if !v.config.SkipIssuerCheck && t.Issuer != v.issuer {
+	v.alternativeIssuer = append(v.alternativeIssuer, v.issuer)
+
+	if !v.config.SkipIssuerCheck && !slices.Contains(v.alternativeIssuer, t.Issuer) {
 		// Google sometimes returns "accounts.google.com" as the issuer claim instead of
 		// the required "https://accounts.google.com". Detect this case and allow it only
 		// for Google.
 		//
 		// We will not add hooks to let other providers go off spec like this.
 		if !(v.issuer == issuerGoogleAccounts && t.Issuer == issuerGoogleAccountsNoScheme) {
-			return nil, fmt.Errorf("oidc: id token issued by a different provider, expected %q got %q", v.issuer, t.Issuer)
+			return nil, fmt.Errorf("oidc: id token issued by a different provider, expected one of %v got %q", v.alternativeIssuer, t.Issuer)
 		}
 	}
 
