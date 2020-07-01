@@ -49,6 +49,18 @@ func TestVerify(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:              "alternative issuer",
+			issuer:            "https://bar",
+			alternativeIssuer: []string{"https://bar", "https://baz"},
+			idToken:           `{"iss":"https://foo"}`,
+			config: Config{
+				SkipClientIDCheck: true,
+				SkipExpiryCheck:   true,
+			},
+			signKey: newRSAKey(t),
+			wantErr: true,
+		},
+		{
 			name:    "skip issuer check",
 			issuer:  "https://bar",
 			idToken: `{"iss":"https://foo"}`,
@@ -535,6 +547,8 @@ type verificationTest struct {
 	// If not provided defaults to "https://foo"
 	issuer string
 
+	alternativeIssuer []string
+
 	// JWT payload (just the claims).
 	idToken string
 
@@ -564,7 +578,7 @@ func (v verificationTest) runGetToken(t *testing.T) (*IDToken, error) {
 	} else {
 		ks = &testVerifier{v.verificationKey.jwk()}
 	}
-	verifier := NewVerifier(issuer, ks, &v.config)
+	verifier := NewVerifier(issuer, ks, &v.config, v.alternativeIssuer...)
 
 	return verifier.Verify(ctx, token)
 }

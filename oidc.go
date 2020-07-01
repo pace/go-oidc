@@ -67,7 +67,9 @@ func doRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 
 // Provider represents an OpenID Connect server's configuration.
 type Provider struct {
-	issuer      string
+	issuer            string
+	alternativeIssuer []string
+
 	authURL     string
 	tokenURL    string
 	userInfoURL string
@@ -151,13 +153,14 @@ func NewProvider(ctx context.Context, issuer string, alternativeIssuer ...string
 		}
 	}
 	return &Provider{
-		issuer:       p.Issuer,
-		authURL:      p.AuthURL,
-		tokenURL:     p.TokenURL,
-		userInfoURL:  p.UserInfoURL,
-		algorithms:   algs,
-		rawClaims:    body,
-		remoteKeySet: NewRemoteKeySet(ctx, p.JWKSURL),
+		issuer:            p.Issuer,
+		alternativeIssuer: alternativeIssuer,
+		authURL:           p.AuthURL,
+		tokenURL:          p.TokenURL,
+		userInfoURL:       p.UserInfoURL,
+		algorithms:        algs,
+		rawClaims:         body,
+		remoteKeySet:      NewRemoteKeySet(ctx, p.JWKSURL),
 	}, nil
 }
 
